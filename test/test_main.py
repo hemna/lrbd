@@ -1,8 +1,10 @@
 
-from lrbd import main, Configs, Images
-import unittest, mock
-import re, tempfile
 import argparse
+import mock
+import unittest
+
+from lrbd import main as lrbd_main
+
 
 class MainTestCase(unittest.TestCase):
 
@@ -15,61 +17,63 @@ class MainTestCase(unittest.TestCase):
         self.args.debug = False
         self.args.name = "client.admin"
         self.args.pools = []
+        self.args.wipe = False
+        self.args.editor = None
 
-    @mock.patch('lrbd.Configs.wipe')
+    @mock.patch('lrbd.content.Configs.wipe')
     def test_main_wipe(self, mock_subproc_wipe):
         self.args.wipe = True
-        main(self.args)
+        lrbd_main.main(self.args)
         assert mock_subproc_wipe.called
 
-    @mock.patch('lrbd.Configs.clear')
+    @mock.patch('lrbd.content.Configs.clear')
     def test_main_clear(self, mock_subproc_clear):
         self.args.wipe = False
         self.args.clear = True
         self.args.unmap = False
-        main(self.args)
+        lrbd_main.main(self.args)
         assert mock_subproc_clear.called
 
-    @mock.patch('lrbd.Configs.clear')
-    @mock.patch('lrbd.Images.__init__')
-    @mock.patch('lrbd.Images.unmap')
+    @mock.patch('lrbd.content.Configs.clear')
+    @mock.patch('lrbd.host.Images.__init__')
+    @mock.patch('lrbd.host.Images.unmap')
     def test_main_clear_and_unmap(self, mock_clear, mock_init, mock_unmap):
         self.args.wipe = False
         self.args.clear = True
         self.args.unmap = True
         mock_init.return_value = None
-        main(self.args)
+        lrbd_main.main(self.args)
         assert (mock_clear.called and mock_unmap.called)
 
-    @mock.patch('lrbd.Images')
+    @mock.patch('lrbd.host.Images')
     def test_main_unmap(self, mock_Images):
         self.args.wipe = False
         self.args.clear = False
         self.args.unmap = True
-        main(self.args)
+        lrbd_main.main(self.args)
         assert mock_Images.called
 
-    @mock.patch('lrbd.Configs.wipe')
-    @mock.patch('lrbd.Content')
+    @mock.patch('lrbd.content.Configs.wipe')
+    @mock.patch('lrbd.content.Content')
     def test_main_file(self, mock_wipe, mock_Content):
         self.args.wipe = False
         self.args.clear = False
         self.args.unmap = False
         self.args.file = True
-        main(self.args)
+        lrbd_main.main(self.args)
         assert (mock_wipe.called and mock_Content.called)
 
-    @mock.patch('lrbd.Content')
+    @mock.patch('lrbd.content.Content')
     def test_main_add(self, mock_Content):
         self.args.wipe = False
         self.args.clear = False
         self.args.unmap = False
         self.args.file = False
         self.args.add = True
-        main(self.args)
+        lrbd_main.main(self.args)
         assert mock_Content.called
 
-    @mock.patch('lrbd.Configs')
+    @mock.patch('lrbd.content.Configs')
     def test_main_output(self, mock_Configs):
         self.args.wipe = False
         self.args.clear = False
@@ -77,11 +81,11 @@ class MainTestCase(unittest.TestCase):
         self.args.file = False
         self.args.add = False
         self.args.output = True
-        main(self.args)
+        lrbd_main.main(self.args)
         assert mock_Configs.called
 
-    @mock.patch('lrbd.Configs')
-    @mock.patch('lrbd.Content')
+    @mock.patch('lrbd.content.Configs')
+    @mock.patch('lrbd.content.Content')
     def test_main_edit(self, mock_Configs, mock_Content):
         self.args.wipe = False
         self.args.clear = False
@@ -92,10 +96,10 @@ class MainTestCase(unittest.TestCase):
         self.args.edit = True
         self.args.editor = None
         self.args.migrate = False
-        main(self.args)
+        lrbd_main.main(self.args)
         assert (mock_Configs.called and mock_Content.called)
 
-    @mock.patch('lrbd.Configs')
+    @mock.patch('lrbd.content.Configs')
     def test_main_local(self, mock_Configs):
         self.args.wipe = False
         self.args.clear = False
@@ -106,21 +110,25 @@ class MainTestCase(unittest.TestCase):
         self.args.edit = False
         self.args.local = True
         self.args.migrate = False
-        main(self.args)
+        lrbd_main.main(self.args)
         assert mock_Configs.called
 
-    @mock.patch('lrbd.Configs')
-    @mock.patch('lrbd.Images')
-    @mock.patch('lrbd.Backstores')
-    @mock.patch('lrbd.Iscsi')
-    @mock.patch('lrbd.TPGs')
-    @mock.patch('lrbd.Luns')
-    @mock.patch('lrbd.TPGattributes')
-    @mock.patch('lrbd.Portals')
-    @mock.patch('lrbd.Acls')
-    @mock.patch('lrbd.Map')
-    @mock.patch('lrbd.Auth')
-    def test_main_default(self, mock_Configs, mock_Images, mock_Backstores, mock_Iscsi, mock_TPGs, mock_Luns, mock_Portals, mock_TPGattributes, mock_Acls, mock_Map, mock_Auth):
+    @mock.patch('lrbd.content.Configs')
+    @mock.patch('lrbd.host.Images')
+    @mock.patch('lrbd.host.Backstores')
+    @mock.patch('lrbd.host.BackstoreAttributes')
+    @mock.patch('lrbd.host.Iscsi')
+    @mock.patch('lrbd.host.TPGs')
+    @mock.patch('lrbd.host.Luns')
+    @mock.patch('lrbd.host.TPGattributes')
+    @mock.patch('lrbd.host.Portals')
+    @mock.patch('lrbd.host.Acls')
+    @mock.patch('lrbd.host.Map')
+    @mock.patch('lrbd.host.Auth')
+    def test_main_default(self, mock_Configs, mock_Images, mock_Backstores,
+                          mock_BackstoreAttributes,
+                          mock_Iscsi, mock_TPGs, mock_Luns, mock_Portals,
+                          mock_TPGattributes, mock_Acls, mock_Map, mock_Auth):
         self.args.wipe = False
         self.args.clear = False
         self.args.unmap = False
@@ -131,10 +139,11 @@ class MainTestCase(unittest.TestCase):
         self.args.local = False
         self.args.migrate = False
         self.args.backstore = "iblock"
-        main(self.args)
+        lrbd_main.main(self.args)
         assert (mock_Configs.called and
                 mock_Images.called and
                 mock_Backstores.called and
+                mock_BackstoreAttributes.called and
                 mock_Iscsi.called and
                 mock_TPGs.called and
                 mock_Luns.called and
@@ -143,8 +152,3 @@ class MainTestCase(unittest.TestCase):
                 mock_Acls.called and
                 mock_Map.called and
                 mock_Auth.called)
-
-
-
-
-

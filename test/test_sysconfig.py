@@ -1,7 +1,9 @@
 
-from lrbd import sysconfig_options
+import tempfile
 import unittest
-import re, tempfile
+
+from lrbd import main
+
 
 class SysconfigTestCase(unittest.TestCase):
 
@@ -10,8 +12,7 @@ class SysconfigTestCase(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix=".tmp") as tmpfile:
             tmpfile.write(data)
             tmpfile.flush()
-            result = sysconfig_options(tmpfile.name)
-            print result
+            result = main.sysconfig_options(tmpfile.name)
             assert result == ['-v']
 
     def test_sysconfig_options_missing_variable(self):
@@ -19,9 +20,5 @@ class SysconfigTestCase(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix=".tmp") as tmpfile:
             tmpfile.write(data)
             tmpfile.flush()
-            result = sysconfig_options(tmpfile.name)
+            result = main.sysconfig_options(tmpfile.name)
             assert result == []
-
-
-
-

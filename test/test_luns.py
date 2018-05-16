@@ -1,42 +1,46 @@
 
-from lrbd import Luns, Common, Runtime, entries
-import unittest, mock
-import re, tempfile
 import logging
+import mock
+import tempfile
+import unittest
+
+from lrbd import content
+from lrbd import host
+from lrbd import runtime
+
 
 class LunsTestCase(unittest.TestCase):
 
     def setUp(self):
-        Common.config = {
-            "iqns": [ "iqn.xyz" ],
+        content.Common.config = {
+            "iqns": ["iqn.xyz"],
             "pools": [
-                { "pool": "rbd",
-                  "gateways": [
-                    { "host": "igw1", "tpg": [
-                        { "image": "archive" }
-                        ]
-                    } ]
-                } ] }
+                {"pool": "rbd",
+                 "gateways": [
+                     {"host": "igw1", "tpg": [{"image": "archive"}]
+                      }]
+                 }]}
 
     def test_lun(self):
-        class mock_Luns(Luns):
+        class mock_Luns(host.Luns):
 
             def _find(self):
                 pass
 
             def _cmd(self, target, tpg, address):
-                self.called = " ".join([ target, str(tpg), address ])
+                self.called = " ".join([target, str(tpg), address])
 
         self.l = mock_Luns(None)
         assert self.l.called == "iqn.xyz 1 archive"
 
     @mock.patch('glob.glob')
     def test_find(self, mock_subproc_glob):
-        mock_subproc_glob = []
-        class mock_Luns(Luns):
+        # mock_subproc_glob = []
+
+        class mock_Luns(host.Luns):
 
             def _cmd(self, target, tpg, address):
-                self.called = " ".join([ target, str(tpg), address ])
+                self.called = " ".join([target, str(tpg), address])
 
         self.l = mock_Luns(None)
         assert self.l.exists == {'iqn.xyz': {}}
@@ -44,23 +48,24 @@ class LunsTestCase(unittest.TestCase):
     @mock.patch('glob.glob')
     def test_find_existing(self, mock_subproc_glob):
 
-        class mock_Luns(Luns):
+        class mock_Luns(host.Luns):
 
             def _cmd(self, target, tpg, address):
-                self.called = " ".join([ target, str(tpg), address ])
+                self.called = " ".join([target, str(tpg), address])
 
-        with tempfile.NamedTemporaryFile(suffix="._1_1_1_1_1_1_tmp") as tmpfile:
+        with tempfile.NamedTemporaryFile(
+                suffix="._1_1_1_1_1_1_tmp") as tmpfile:
             tmpfile.write("/dev/rbd/rbd/archive\n")
             tmpfile.flush()
-            mock_subproc_glob.return_value = [ tmpfile.name ]
+            mock_subproc_glob.return_value = [tmpfile.name]
             self.l = mock_Luns(None)
             assert self.l.exists == {'iqn.xyz': {'1': ['archive']}}
 
-
     def test_cmd_for_rbd(self):
 
-        Runtime.config['backstore'] = "rbd"
-        class mock_Luns(Luns):
+        runtime.Runtime.config['backstore'] = "rbd"
+
+        class mock_Luns(host.Luns):
 
             def _find(self):
                 pass
@@ -75,21 +80,19 @@ class LunsTestCase(unittest.TestCase):
         logging.disable(logging.DEBUG)
         _la = mock_LunAssignment()
         self.l = mock_Luns(_la)
-        print self.l.unassigned
-        assert self.l.unassigned == [ ['targetcli', '/iscsi/iqn.xyz/tpg1/luns', 'create', '/backstores/rbd/rbd-archive'] ]
+        assert self.l.unassigned == [['targetcli', '/iscsi/iqn.xyz/tpg1/luns',
+                                      'create', '/backstores/rbd/rbd-archive']]
 
-
-
-    @mock.patch('lrbd.popen')
+    @mock.patch('lrbd.utils.popen')
     def test_create_nothing(self, mock_subproc_popen):
 
-        class mock_Luns(Luns):
+        class mock_Luns(host.Luns):
 
             def _find(self):
                 pass
 
             def _cmd(self, target, tpg, address):
-                self.called = " ".join([ target, str(tpg), address ])
+                self.called = " ".join([target, str(tpg), address])
 
             def disable_auto_add_mapped_luns(self):
                 pass
@@ -100,10 +103,11 @@ class LunsTestCase(unittest.TestCase):
 
         assert not mock_subproc_popen.called
 
-    @mock.patch('lrbd.popen')
+    @mock.patch('lrbd.utils.popen')
     def test_create(self, mock_subproc_popen):
+        runtime.Runtime.config['backstore'] = "rbd"
 
-        class mock_Luns(Luns):
+        class mock_Luns(host.Luns):
 
             def _find(self):
                 pass
@@ -124,6 +128,3 @@ class LunsTestCase(unittest.TestCase):
         self.l.create()
 
         assert mock_subproc_popen.called
-
-    
-
